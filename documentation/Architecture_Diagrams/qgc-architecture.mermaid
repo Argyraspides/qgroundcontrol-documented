@@ -5,21 +5,30 @@ classDiagram
 
     class QGCToolbox {
         #QGCApplication
-        +corePlugin()
-        +settingsManager()
-        +multiVehicleManager()
-        +videoManager()
-        +linkManager()
-        +mavlinkProtocol()
-        -LinkManager
-        -MAVLinkProtocol
-        -MultiVehicleManager
-        -VideoManager
-        -SettingsManager
+        -LinkManager* _linkManager
+        -MAVLinkProtocol* _mavlinkProtocol
+        -MultiVehicleManager* _multiVehicleManager
+        -VideoManager* _videoManager
+        -SettingsManager* _settingManager
+        -QGCCorePlugin* _corePlugin
     }
+
+    class QGCCorePlugin {
+        +QGCOptions* options
+        +QmlObjectListModel* customMapItems
+        +bool showAdvancedUI
+        
+        +mavlinkMessage(vehicle, link, message)
+        +createVideoReceiver(parent)
+        +adjustSettingMetaData(settingsGroup, metaData)
+        +preSaveToMissionJson(controller, json)
+        +postSaveToMissionJson(controller, json)
+    }
+    <<abstract>> QGCCorePlugin
 
     class LinkManager {
         #QGCToolbox
+        #QGCApplication
         -MAVLinkProtocol
         -UdpIODevice
         +createConnectedLink()
@@ -29,6 +38,7 @@ classDiagram
 
     class MultiVehicleManager {
         #QGCToolbox
+        #QGCApplication
         -activeVehicle
         -MAVLinkProtocol
         +lastKnownLocation()
@@ -40,7 +50,6 @@ classDiagram
     }
 
     class Vehicle {
-        %% Key Properties
         -int id
         -MAV_AUTOPILOT firmwareType
         -MAV_TYPE vehicleType
@@ -48,27 +57,22 @@ classDiagram
         -QGeoCoordinate coordinate
         -QString flightMode
         
-        %% Essential Managers
         -MissionManager* missionManager
         -ParameterManager* parameterManager
         -VehicleLinkManager* vehicleLinkManager
         -GeoFenceManager* geoFenceManager
-        -QGCCameraManager* cameraManager
+        +QGCCameraManager* cameraManager
         
-        %% Core Methods
-        +sendMessage(mavlink_message_t message)
-        +setArmed(bool armed)
-        +setFlightMode(QString flightMode)
-        +guidedModeRTL()
         +guidedModeLand()
-        +guidedModeTakeoff(double altitude)
+        +guidedModeTakeoff()
         +startMission()
         
-        %% Essential Signal Methods
-        +coordinateChanged(QGeoCoordinate)
-        +armedChanged(bool)
-        +flightModeChanged(QString)
-        +mavlinkMessageReceived(mavlink_message_t)
+        +mavlinkMessageReceived() SIGNAL
+    }
+
+    class Joystick {
+        #MultiVehicleManager
+        #Vehicle* activeVehicle
     }
 
     class MAVLinkProtocol {
@@ -100,44 +104,74 @@ classDiagram
     }
 
     class JoystickManager {
-
+        -Joystick* activeJoystick 
+        activeJoystickChanged() SIGNAL
     }
 
     class SettingsManager {
+        #QGCToolbox
+        #QGCApplication
+        -VideoSettings* videoSettings
+        -FlightModeSettings* flightModeSettings
+        -MapsSettings* mapSettings 
 
     }
 
     class FirmwarePluginManager {
-
+        -FirmwarePlugin* genericFirmwarePlugin
+        -FirmwarePluginFactory findPluginFactory()
     }
+
+    class FirmwarePlugin {
+        +initializeVehicle(Vehicle* vehicle)
+        +isCapable(Vehicle* vehicle, FirmwareCapabilities capabilities)
+        +flightMode()
+        +setFlightMode()
+    }
+    <<abstract>> FirmwarePlugin
 
     class AutoPilotPlugin {
 
     }
 
-    %% class TerrainProtocolHandler {
-    %%     +terrainData
-    %%     +requestTileData()
-    %%     +parseData()
-    %% }
-
     class FTPManager {
     }
 
     class VideoManager {
+        #QGCToolbox
+        #QGCApplication
+        #Vehicle* activeVehicle
+        #VideoReceiver* receiver
     }
 
     class LogDownloadManager {
     }
 
     class GPSManager {
+        GPSRtk* gpsRtk
     }
 
-    class FactSystem {
+    class GPSRtk {
+        -GPSProvider* gpsProvider
+        +connectGPS()
+        +disconnectGPS()
+        +satelliteInfoUpdate()
     }
 
-    class QGCPositionManager {
+    class GPSProvider {
+        satelliteInfoUpdate() SIGNAL
+        sensorGpsUpdate() SIGNAL
+        -run()
     }
+
+    class VideoReceiver {
+        +struct FILE_FORMAT
+        +startDecoding()
+        +startRecording()
+        +start()
+        +stop()
+    }
+    <<abstract>> VideoReceiver
 
     QGCApplication -- QGCToolbox
     QGCToolbox <--> LinkManager
@@ -146,9 +180,7 @@ classDiagram
     QGCToolbox <--> FirmwarePluginManager
     QGCToolbox <--> JoystickManager
     QGCToolbox <--> VideoManager
-    QGCToolbox <--> GPSManager
-    QGCToolbox <--> FactSystem
-    QGCToolbox <--> QGCPositionManager
+    QGCToolbox <--> QGCCorePlugin
 
     MultiVehicleManager --> Vehicle
     Vehicle --> MAVLinkProtocol
@@ -164,9 +196,28 @@ classDiagram
     LinkManager <--> MAVLinkProtocol
     MAVLinkProtocol <--> MultiVehicleManager
 
+    JoystickManager --> Joystick
+
+
+    Joystick --> Vehicle
+    Joystick --> MultiVehicleManager
+
+    VideoManager --> VideoReceiver
+
+    FirmwarePluginManager --> FirmwarePlugin
+
+    GPSManager --> GPSRtk
+
+    GPSRtk --> GPSProvider
+
     note for QGCApplication "Main application class<br/>Initializes all core components"
     note for Vehicle "Represents single vehicle and <br/>handles vehicle-specific operations.<br/>All functions for vehicle control, e.g.<br/>takeoff, are MAVLink specific"
     note for MAVLinkProtocol "Handles MAVLink message<br/>processing and routing<br/>Only one instance running through the entire app (singleton)<br/>Gets raw data from the LinkManager<br/>and converts them into MAVLink messages"
     note for MultiVehicleManager "Manages multiple vehicle<br/>instances and coordination"
     note for LinkManager "Manages all links, e.g., UDP links<br/> TCP links, etc"
-
+    note for JoystickManager "Only one joystick can be used at a time,<br/>but multiple can be connected.<br/>Each joystick runs on its own thread"
+    note for Joystick "Needs MultiVehicleManager to know what the current active vehicle is?"
+    note for VideoManager "Has a list of VideoReceivers -- max of two in vanilla QGC"
+    note for SettingsManager "Quite literally just a container for all application settings. Instantiates all of them, too<br/>(instantiation function setToolbox() called from QGCToolBox)"
+    note for FirmwarePluginManager "QGC supports vehicles with any arbitrary firmware. Modules for firmware and a factory class to make them must be written"
+    note for QGCCorePlugin "Make your own instance of a QGCCorePlugin to customize and extend QGC functionality.<br/>E.g., override createVideoReceiver() for custom video stream handling,<br/>or use mavlinkMessage() to inspect all mavlink traffic"
