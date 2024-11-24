@@ -184,6 +184,9 @@ void UDPLink::readBytes()
         databuffer.append(datagram);
         //-- Wait a bit before sending it over
         if (databuffer.size() > 10 * 1024) {
+            // Odysseus: This seems to be where the data is handed off to the LinkManager elsewhere.
+            // There also seems to be a naming convention throughout the codebase where all signals and slots have a similar (not same)
+            // name. Use Control+F to your advantage for that.
             emit bytesReceived(this, databuffer);
             databuffer.clear();
         }

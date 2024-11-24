@@ -1,0 +1,172 @@
+classDiagram
+    class QGCApplication {
+        -QGCToolbox
+    }
+
+    class QGCToolbox {
+        #QGCApplication
+        +corePlugin()
+        +settingsManager()
+        +multiVehicleManager()
+        +videoManager()
+        +linkManager()
+        +mavlinkProtocol()
+        -LinkManager
+        -MAVLinkProtocol
+        -MultiVehicleManager
+        -VideoManager
+        -SettingsManager
+    }
+
+    class LinkManager {
+        #QGCToolbox
+        -MAVLinkProtocol
+        -UdpIODevice
+        +createConnectedLink()
+        +disconnectAll()
+
+    }
+
+    class MultiVehicleManager {
+        #QGCToolbox
+        -activeVehicle
+        -MAVLinkProtocol
+        +lastKnownLocation()
+        +setActiveVehicle()
+        -deleteVehicle()
+        +vehicles()
+        +vehicleAdded() SIGNAL
+        +vehicleRemoved() SIGNAL
+    }
+
+    class Vehicle {
+        %% Key Properties
+        -int id
+        -MAV_AUTOPILOT firmwareType
+        -MAV_TYPE vehicleType
+        -bool armed
+        -QGeoCoordinate coordinate
+        -QString flightMode
+        
+        %% Essential Managers
+        -MissionManager* missionManager
+        -ParameterManager* parameterManager
+        -VehicleLinkManager* vehicleLinkManager
+        -GeoFenceManager* geoFenceManager
+        -QGCCameraManager* cameraManager
+        
+        %% Core Methods
+        +sendMessage(mavlink_message_t message)
+        +setArmed(bool armed)
+        +setFlightMode(QString flightMode)
+        +guidedModeRTL()
+        +guidedModeLand()
+        +guidedModeTakeoff(double altitude)
+        +startMission()
+        
+        %% Essential Signal Methods
+        +coordinateChanged(QGeoCoordinate)
+        +armedChanged(bool)
+        +flightModeChanged(QString)
+        +mavlinkMessageReceived(mavlink_message_t)
+    }
+
+    class MAVLinkProtocol {
+        -LinkManager
+        -MultiVehicleManager
+        #mavlink_message_t
+        +receiveBytes()
+
+    }
+
+    class MissionManager {
+
+    }
+
+    class ParameterManager {
+    
+    }
+
+    class RallyPointManager {
+
+    }
+
+    class VehicleLinkManager {
+
+    }
+
+    class GeoFenceManager {
+
+    }
+
+    class JoystickManager {
+
+    }
+
+    class SettingsManager {
+
+    }
+
+    class FirmwarePluginManager {
+
+    }
+
+    class AutoPilotPlugin {
+
+    }
+
+    %% class TerrainProtocolHandler {
+    %%     +terrainData
+    %%     +requestTileData()
+    %%     +parseData()
+    %% }
+
+    class FTPManager {
+    }
+
+    class VideoManager {
+    }
+
+    class LogDownloadManager {
+    }
+
+    class GPSManager {
+    }
+
+    class FactSystem {
+    }
+
+    class QGCPositionManager {
+    }
+
+    QGCApplication -- QGCToolbox
+    QGCToolbox <--> LinkManager
+    QGCToolbox <--> MultiVehicleManager
+    QGCToolbox <--> SettingsManager
+    QGCToolbox <--> FirmwarePluginManager
+    QGCToolbox <--> JoystickManager
+    QGCToolbox <--> VideoManager
+    QGCToolbox <--> GPSManager
+    QGCToolbox <--> FactSystem
+    QGCToolbox <--> QGCPositionManager
+
+    MultiVehicleManager --> Vehicle
+    Vehicle --> MAVLinkProtocol
+    Vehicle --> MissionManager
+    Vehicle --> ParameterManager
+    Vehicle --> AutoPilotPlugin
+    Vehicle --> FTPManager
+    Vehicle --> LogDownloadManager
+    Vehicle --> GeoFenceManager
+    Vehicle --> VehicleLinkManager
+    Vehicle --> RallyPointManager
+
+    LinkManager <--> MAVLinkProtocol
+    MAVLinkProtocol <--> MultiVehicleManager
+
+    note for QGCApplication "Main application class<br/>Initializes all core components"
+    note for Vehicle "Represents single vehicle and <br/>handles vehicle-specific operations.<br/>All functions for vehicle control, e.g.<br/>takeoff, are MAVLink specific"
+    note for MAVLinkProtocol "Handles MAVLink message<br/>processing and routing<br/>Only one instance running through the entire app (singleton)<br/>Gets raw data from the LinkManager<br/>and converts them into MAVLink messages"
+    note for MultiVehicleManager "Manages multiple vehicle<br/>instances and coordination"
+    note for LinkManager "Manages all links, e.g., UDP links<br/> TCP links, etc"
+

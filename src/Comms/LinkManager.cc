@@ -370,6 +370,7 @@ void LinkManager::loadLinkConfigurationList()
     _configurationsLoaded = true;
 }
 
+// Odysseus: Constantly called automatically by _updateAutoConnectLinks()
 void LinkManager::_addUDPAutoConnectLink()
 {
     if (!_autoConnectSettings->autoConnectUDP()->rawValue().toBool()) {
@@ -481,6 +482,7 @@ void LinkManager::_addZeroConfAutoConnectLink()
 }
 #endif
 
+// Odysseus: Constantly called automatically to update links. For listening to connections and updating them?
 void LinkManager::_updateAutoConnectLinks()
 {
     if (_connectionsSuspended) {
